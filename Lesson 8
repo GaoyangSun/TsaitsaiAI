@@ -1,0 +1,10 @@
+torch.mv() -> matrix * vector
+
+X = torch.tensor([[1,0],[0,1]], dtype=torch.float32 -> 使用dtype=torch.float32以节省内存
+
+标签定义成二维
+
+torch.set_printoptions(percision=30) -> 设置显示精度
+torch.allclose(x1,x2) -> x1 x2是否大致接近
+
+torch.random.manual_seed(42) 人为设置随机种子
