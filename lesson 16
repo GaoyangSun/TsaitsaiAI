@@ -1,0 +1,29 @@
+图像数据格式 （#samples, #channels, width, height）
+
+kernel_size 一般用奇数*奇数，3*3是通用选择，cv里通常叫小，nlp可能大一些
+
+卷积核个数 = in_channels * out_channels
+其中 in_channels是输入的通道数，卷积核对通道扫描（RGB是三个通道）而不是对图像扫描。扫描之后生成多个feature maps，将所有maps相加，得到新的feature map
+     out_channels是扫描次数，一张图片可能需要不同参数的核来识别不同的特征，因此同一个通道也需要扫描多次。扫描次数可能会比较大。扫描几次就会生成几张相加后合成的feature maps
+     上一个卷积的out_channels对应上一层的通道，也就是下一层的in_channels
+     bias 加到合成之后的feature maps上
+     stride 步长，padding 填充
+     一般设置： kernel<=5 kernel_size>stride stride<2*padding
+data = torch.ones(size=(10,3,28,28))
+conv1 = nn.Conv2d(kernel_size=3, in_channels=3, out_channels=6)
+conv2 = nn.Conv2d(kernel_size=3, in_channels=6, out_channels=4)
+
+padding mode
+zero 零填充
+circular 环形填充（复制原始数据 再环绕到原始数据）
+reflect -> nn.ReflectionPAd2d 以当前单元作为镜面 数字从里向外进行轴对称复制
+replicate -> nn.ReplicationPad2d 以当前单元的数字向其位置复制辐射
+
+torch.nn.AdaptiveMaxPool2d(output_size) -> 希望输出的维度是output_size*output_size, 其他的参数都是 自适应
+
+池化层的存在是否有必要 是有争议的
+
+torch.nn.BatchNorm2d(num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+一般只改num_features 其他不动
+
+torch.nn.Dropout2d(p=0.1) 以p的概率直接毙掉一个通道
