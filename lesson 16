@@ -21,9 +21,65 @@ replicate -> nn.ReplicationPad2d 以当前单元的数字向其位置复制辐�
 
 torch.nn.AdaptiveMaxPool2d(output_size) -> 希望输出的维度是output_size*output_size, 其他的参数都是 自适应
 
+nn.MaxPool2d(kernel_size)
 池化层的存在是否有必要 是有争议的
 
 torch.nn.BatchNorm2d(num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
 一般只改num_features 其他不动
 
 torch.nn.Dropout2d(p=0.1) 以p的概率直接毙掉一个通道
+
+pip install torchinfo
+from torchinfo import summary
+summary(net, input_size) 
+
+leNet5 -> 卷积+池化 - 卷积+池化 - 线性*2
+input_size 32*32*1
+class LeNet5(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, stride=1)
+        self.pool1 = nn.AvgPool2d(kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, stride=1)
+        self.pool2 = nn.AvgPool2d(kernel_size=2, stride=2)
+        self.fc1 = nn.Linear(in_features=400, out_features=120)
+        self.fc2 = nn.Linear(in_features=120, out_features=84)
+    def forward(self,x):
+        x = F.tanh(self.conv1(x))
+        x = self.pool1(x)
+        x = F.tanh(self.conv2(x))
+        x = self.pool2(x)
+        x = x.view(-1,400)
+        x = F.tanh(self.fc1(1))
+        x = self.fc2(x)
+        return F.softmax(x,dim=1)
+        
+AlexNet 卷积+池化 - 卷积+池化 - 卷积*3 + 池化 - 线性*3
+input_size 227*227*3
+和leNet区别： 先用尽量大的卷积核将图像缩小，以减小计算量，再用尽量小（3*3）的卷积核逐步提取信息。并用相当大的通道数来弥补丢失的信息
+             relu激活函数替代tanh和sigmoid
+class AlexNet(nn.Module):
+    def __init__(self):
+         super().__init__()
+         self.conv1 = nn.Conv2d(in_channels=3, out_channels=96, kernel_size=11, stride=4)
+         self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2)
+         self.conv2 = nn.Conv2d(in_channels=96, out_channels=256, kernel_size=5, padding=2)
+         self.pool2 = nn.MaxPool2d(kernel_size=3, stride=2)
+         self.conv3 = nn.Conv2d(in_channels=256, out_channels=384, kernel_size=3, padding=1)        
+         self.conv4 = nn.Conv2d(in_channels=384, out_channels=384, kernel_size=3, padding=1)
+         self.conv5 = nn.Conv2d(in_channels=384, out_channels=256, kernel_size=3, padding=1)
+         self.pool3 = nn.MaxPool2d(kernel_size=3, stride=2)
+         self.fc1 = nn.Linear(6*6*256, 4096)
+         self.fc2 = nn.Linear(4096, 4096)
+         self.fc3 = nn.Linear(4096, 1000)
+    def forward(self,x):
+         x = self.pool1(F.relu(self.conv1(x)))
+         x = self.pool2(F.relu(self.conv2(x)))
+         x = F.relu(self.conv3(x))
+         x = F.relu(self.conv4(x))
+         x = self.pool3(F.relu(self.conv5(x)))
+         x = x.views(-1, 6*6*256)
+         x = F.relu(self.fc1(x))
+         x = F.relu(self.fc2(x))
+         x = self.fc3(x)
+         reutrn F.softmax(x,dim=1)
