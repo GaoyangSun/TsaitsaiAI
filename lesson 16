@@ -7,8 +7,13 @@ kernel_size 一般用奇数*奇数，3*3是通用选择，cv里通常叫小，nl
      out_channels是扫描次数，一张图片可能需要不同参数的核来识别不同的特征，因此同一个通道也需要扫描多次。扫描次数可能会比较大。扫描几次就会生成几张相加后合成的feature maps
      上一个卷积的out_channels对应上一层的通道，也就是下一层的in_channels
      bias 加到合成之后的feature maps上
-     stride 步长，padding 填充
+     stride=1 步长，padding=0 填充
      一般设置： kernel<=5 kernel_size>stride stride<2*padding
+
+conv2d H_out = (H_in + 2*padding - kernel)/stride   + 1
+膨胀卷积 H_out = (H_in + 2*padding - dilation*(kernel-1)-1)/stride  +1
+pool  H_out = (H_in + 2*padding - kernel)/stride  + 1
+
 data = torch.ones(size=(10,3,28,28))
 conv1 = nn.Conv2d(kernel_size=3, in_channels=3, out_channels=6)
 conv2 = nn.Conv2d(kernel_size=3, in_channels=6, out_channels=4)
@@ -83,3 +88,47 @@ class AlexNet(nn.Module):
          x = F.relu(self.fc2(x))
          x = self.fc3(x)
          reutrn F.softmax(x,dim=1)
+
+VGGNet 使用多个连续且保持特征图尺寸不变的卷积层 (通过kernel_size=3, padding=1保持尺寸不变）
+input size 224*224*3
+VGG-16 （卷积*2 + 池化）*2 - （卷积*3 + 池化）*3 - 线性*3
+class VGG16(nn.Module):
+     def __init__(self):
+          super().__init__()
+          self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1)              #  224*224*64
+          self.conv2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1)             #  224*224*64
+          self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)                                            #  112*112*64
+          self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1)            #  112*112*128
+          self.conv4 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1)           #  112*112*128
+          self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)                                            #  56*56*128
+          self.conv5 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1)           #  56*56*256
+          self.conv6 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1)           #  56*56*256
+          self.conv7 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1)           #  56*56*256
+          self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)                                            #  28*28*256
+          self.conv8 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1)           #  28*28*512
+          self.conv9 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1)           #  28*28*512
+          self.conv10 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1)          #  28*28*512
+          self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2)                                            #  14*14*512
+          self.conv11 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1)          #  14*14*512
+          self.conv12 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1)          #  14*14*512
+          self.conv13 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1)          #  14*14*512
+          self.pool5 = nn.MaxPool2d(kernel_size=2, stride=2)                                            #  7*7*512
+          self.fc1 = nn.Linear(in_features=7*7*512, out_features=4096)                                  #  4096
+          self.fc2 = nn.Linear(in_features=4096, out_features=4096)                                     #  4096
+          self.fc3 = nn.Linear(in_features=4096, out_features=1000)                                     #  1000
+     def forward(self, x):
+          x = self.pool1(F.relu(self.conv2(F.relu(self.conv1(x)))))
+          x = self.pool2(F.relu(self.conv4(F.relu(self.conv3(x)))))
+          x = self.pool3(F.relu(self.conv7(F.relu(self.conv6(F.relu(self.conv5(x)))))))
+          x = self.pool4(F.relu(self.conv10(F.relu(self.conv9(F.relu(self.conv8(x)))))))
+          x = self.pool5(F.relu(self.conv13(F.relu(self.conv12(F.relu(self.conv11(x)))))))
+          x = x.view(-1, 7*7*512)
+          x = F.relu(self.fc1(F.dropout(x,p=0.5)))
+          x = F.relu(self.fc2(F.dropout(x,p=0.5))) 
+          x = self.fc3(x)
+          return F.softmax(x,dim=1)
+
+更深的模型意味着更大的感受野，为了能使神经元获取尽量多的信息，在输入到fc层之前的感受野越大越好
+感受野没有上限，较深的神经网络在fc之前的神经元，感受野有可能远远大于原始图像，即他的感受野看起来是中间一个很小的原始图像，加上旁边很粗的黑框
+这是因为位于图像中间的像素被看到的次数更多，对最终特征图的影响更大。原始图像的像素对于最终特征图的影响力呈二元高斯分布。
+感受野大小： r_i = r_i-1 + (kernel_i -1)*prods over stride_i-1
